@@ -160,6 +160,7 @@ function Page() {
       ),
     [selectedElementsByElectrolyzer]
   );
+  const totalSelectedElements = allSelectedEntries.length;
   const [selectedChecklist, setSelectedChecklist] = useState<string[]>([]);
   const [cutOutComment, setCutOutComment] = useState("");
   const [feedback, setFeedback] = useState<string>();
@@ -189,19 +190,12 @@ function Page() {
   const allSelected =
     selectableElements.length > 0 &&
     selectableElements.every((item) => selectedElements.includes(item.id));
-
   useEffect(() => {
-    if (
-      !selectedElectrolyzer ||
-      (selectedElementsByElectrolyzer[selectedElectrolyzer] ?? []).length > 0
-    ) {
-      return;
+    if (totalSelectedElements === 0) {
+      setSelectedChecklist([]);
+      setCutOutComment("");
     }
-    setSelectedChecklist([]);
-    setCutOutComment("");
-    setFeedback(undefined);
-    setPendingAction(undefined);
-  }, [selectedElectrolyzer, selectedElementsByElectrolyzer]);
+  }, [totalSelectedElements]);
 
   useEffect(() => {
     if (filteredElectrolyzers.length === 0) {
@@ -317,7 +311,7 @@ function Page() {
   }
 
   function requestAction(action: ElementAction) {
-    if (selectedElements.length === 0) {
+    if (totalSelectedElements === 0) {
       setFeedback("Select one or more element part IDs to continue.");
       return;
     }
@@ -332,54 +326,53 @@ function Page() {
   }
 
   function completeAction() {
-    if (!selectedElectrolyzer || !pendingAction) return;
+    if (!pendingAction || totalSelectedElements === 0) return;
 
     setFleet((prev) => {
       const next = { ...prev };
-      next[selectedElectrolyzer] = next[selectedElectrolyzer].map((element) => {
-        if (!selectedElements.includes(element.id)) {
-          return element;
+      Object.entries(selectedElementsByElectrolyzer).forEach(
+        ([electroId, elements]) => {
+          if (!elements.length) {
+            return;
+          }
+          const numericId = Number(electroId);
+          next[numericId] = next[numericId].map((element) => {
+            if (!elements.includes(element.id)) {
+              return element;
+            }
+            const comment =
+              commentsByElectrolyzer[numericId]?.[element.id] ?? "";
+            if (pendingAction === "repair") {
+              return {
+                ...element,
+                status: "repair",
+                disabled: true,
+                checklistCount: selectedChecklist.length,
+                comment
+              };
+            }
+            return {
+              ...element,
+              status: "ready",
+              disabled: true,
+              checklistCount: 0,
+              comment
+            };
+          });
         }
-        if (pendingAction === "repair") {
-          return {
-            ...element,
-            status: "repair",
-            disabled: true,
-            checklistCount: selectedChecklist.length,
-            comment: currentComments[element.id]
-          };
-        }
-        return {
-          ...element,
-          status: "ready",
-          disabled: true,
-          checklistCount: 0,
-          comment: currentComments[element.id]
-        };
-      });
+      );
       return next;
     });
 
-    setSelectedElementsByElectrolyzer((prev) => {
-      if (!selectedElectrolyzer) return prev;
-      return { ...prev, [selectedElectrolyzer]: [] };
-    });
-    setCommentsByElectrolyzer((prev) => {
-      if (!selectedElectrolyzer) return prev;
-      const current = prev[selectedElectrolyzer] ?? {};
-      const next = { ...current };
-      selectedElements.forEach((id) => {
-        delete next[id];
-      });
-      return { ...prev, [selectedElectrolyzer]: next };
-    });
+    setSelectedElementsByElectrolyzer({});
+    setCommentsByElectrolyzer({});
     setSelectedChecklist([]);
     setCutOutComment("");
     setFeedback(undefined);
     setPendingAction(undefined);
   }
 
-  const checklistDisabled = selectedElements.length === 0;
+  const checklistDisabled = totalSelectedElements === 0;
 
   return (
     <main className="min-h-screen bg-[#f1f1f3] text-gray-700">
@@ -715,13 +708,13 @@ function Page() {
                         onClick={() => requestAction("repair")}
                         className={clsx(
                           "min-w-[160px] rounded-full px-5 py-2 text-sm font-semibold transition",
-                          selectedElements.length === 0 ||
+                          totalSelectedElements === 0 ||
                             selectedChecklist.length === 0
                             ? "cursor-not-allowed bg-gray-300 text-gray-500"
                             : "bg-black text-white hover:bg-gray-900"
                         )}
                         disabled={
-                          selectedElements.length === 0 ||
+                          totalSelectedElements === 0 ||
                           selectedChecklist.length === 0
                         }
                       >
@@ -731,11 +724,11 @@ function Page() {
                         onClick={() => requestAction("assemble")}
                         className={clsx(
                           "min-w-[180px] rounded-full px-5 py-2 text-sm font-semibold transition",
-                          selectedElements.length === 0
+                          totalSelectedElements === 0
                             ? "cursor-not-allowed bg-gray-300 text-gray-500"
                             : "bg-[#1f1f1f] text-white hover:bg-black"
                         )}
-                        disabled={selectedElements.length === 0}
+                        disabled={totalSelectedElements === 0}
                       >
                         {ACTION_LABEL.assemble}
                       </button>
