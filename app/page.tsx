@@ -96,11 +96,11 @@ function ConfirmActionModal({
             Update status of Element Part ID{" "}
             <span className="font-semibold text-gray-900">{idsLabel}</span> to{" "}
             <span className="font-semibold text-gray-900">
-              "
+              &ldquo;
               {action === "repair"
                 ? STATUS_COPY.repair
                 : STATUS_COPY.assemble}
-              "
+              &rdquo;
             </span>
             {action === "repair" && (
               <>
